@@ -2,7 +2,9 @@
 #include "delay.h"
 #include "ZDT_X42_V2.h"
 #include "OLED.h"
-
+#include "move.h"
+#include "mpu6050.h"
+#include "inv_mpu.h"
 
 /**
 	*	@brief		MAIN函数
@@ -32,9 +34,26 @@ int main(void)
     
     while(1)
 	{
-        // 实时读取电机位置（在电机转动过程中）
-        ZDT_X42_V2_Read_Sys_Params(2, S_CPOS);
-        
+        // 实时读取电机1位置（在电机转动过程中）
+        ZDT_X42_V2_Read_Sys_Params(1, S_CPOS);        
+        // 等待返回数据
+        ZDT_X42_V2_Receive_Data(rxCmd, &rxCount);
+        if(rxCmd[0] == 1 && rxCmd[1] == 0x36 && rxCount == 8)
+        {
+            // 获取电机实时角度返回值
+            motor1_pos = ((uint32_t)rxCmd[3] << 24) | ((uint32_t)rxCmd[4] << 16) |  
+                  ((uint32_t)rxCmd[5] << 8) | (uint32_t)rxCmd[6];
+            
+            // 缩小10倍，并判断符号，得到真正的实时角度
+            motor1_pos = motor1_pos * 0.1f; 
+            if(rxCmd[2]) { motor1_pos = -motor1_pos; }
+            
+            // 在OLED上显示实时位置
+            OLED_ShowNum(1, 1, (uint32_t)motor1_pos, 4);
+        }
+
+        // 实时读取电机2位置（在电机转动过程中）
+        ZDT_X42_V2_Read_Sys_Params(2, S_CPOS);        
         // 等待返回数据
         ZDT_X42_V2_Receive_Data(rxCmd, &rxCount); 
         
@@ -42,7 +61,7 @@ int main(void)
         if(rxCmd[0] == 2 && rxCmd[1] == 0x36 && rxCount == 8)
         {
             // 获取电机实时角度返回值
-            motor2_pos = ((uint32_t)rxCmd[3] << 24) | ((uint32_t)rxCmd[4] << 16) | 
+            motor2_pos = ((uint32_t)rxCmd[3] << 24) | ((uint32_t)rxCmd[4] << 16) |  
                   ((uint32_t)rxCmd[5] << 8) | (uint32_t)rxCmd[6];
             
             // 缩小10倍，并判断符号，得到真正的实时角度
@@ -50,7 +69,7 @@ int main(void)
             if(rxCmd[2]) { motor2_pos = -motor2_pos; }
             
             // 在OLED上显示实时位置
-            OLED_ShowNum(1, 1, (uint32_t)motor2_pos, 4);
+            OLED_ShowNum(2, 1, (uint32_t)motor2_pos, 4);
         }
         
         delay_ms(50);  // 50ms读取一次，避免读取过于频繁
